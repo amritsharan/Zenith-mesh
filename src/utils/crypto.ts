@@ -23,3 +23,47 @@ export async function computeHashOfIntent(message: string): Promise<string> {
     
   return hashHex;
 }
+
+/**
+ * Computes the hash of a complete block in the blockchain.
+ */
+export async function computeBlockHash(
+  index: number,
+  timestamp: string,
+  data: string,
+  intentHash: string,
+  previousHash: string,
+  nonce: number
+): Promise<string> {
+  const blockString = `${index}-${timestamp}-${data}-${intentHash}-${previousHash}-${nonce}`;
+  const encoder = new TextEncoder();
+  const dataBytes = encoder.encode(blockString);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', dataBytes);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Performs Proof-of-Work to mine a block by finding a nonce that yields a hash starting with the required prefix.
+ */
+export async function mineBlock(
+  index: number,
+  timestamp: string,
+  data: string,
+  intentHash: string,
+  previousHash: string,
+  difficulty: number
+): Promise<{ nonce: number; hash: string }> {
+  let nonce = 0;
+  const target = '0'.repeat(difficulty);
+  while (true) {
+    const hash = await computeBlockHash(index, timestamp, data, intentHash, previousHash, nonce);
+    if (hash.startsWith(target)) {
+      return { nonce, hash };
+    }
+    nonce++;
+    if (nonce % 200 === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+}
